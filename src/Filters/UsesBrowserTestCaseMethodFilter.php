@@ -54,6 +54,13 @@ final readonly class UsesBrowserTestCaseMethodFilter implements TestCaseMethodFi
             [],
         );
 
+        $factory->proxies->add(
+            $factory->filename,
+            Backtrace::line(),
+            '__markAsNuxtBrowserTest',
+            [],
+        );
+
         if (Parallel::isWorker() === false && Plugin::$booted === false) {
             Plugin::$booted = true;
 

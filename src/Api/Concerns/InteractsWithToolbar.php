@@ -23,6 +23,16 @@ trait InteractsWithToolbar
     }
 
     /**
+     * Reloads the current page (alias for refresh).
+     */
+    public function reload(): self
+    {
+        $this->page->reload();
+
+        return $this;
+    }
+
+    /**
      * Navigates to the given URL.
      *
      * @param  array<string, mixed>  $options

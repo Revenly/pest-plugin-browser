@@ -32,6 +32,22 @@ trait Browsable
     }
 
     /**
+     * Marks the test as a Nuxt browser test.
+     *
+     * @internal
+     */
+    public function __markAsNuxtBrowserTest(): void
+    {
+        Client::instance()->connectTo(
+            ServerManager::instance()->playwright()->url(),
+        );
+
+        $nuxt = ServerManager::instance()->nuxt();
+
+        $nuxt->bootstrap();
+    }
+
+    /**
      * Browse to the given URL.
      *
      * @template TUrl of array<int, string>|string
@@ -59,5 +75,31 @@ trait Browsable
                 $options,
             ), $url),
         );
+    }
+
+    /**
+     * Browse to a Nuxt application URL.
+     *
+     * @template TUrl of array<int, string>|string
+     *
+     * @param  TUrl  $url
+     * @param  array<string, mixed>  $options
+     * @return (TUrl is array<int, string> ? ArrayablePendingAwaitablePage : PendingAwaitablePage)
+     */
+    public function visitNuxt(array|string $url, array $options = []): ArrayablePendingAwaitablePage|PendingAwaitablePage
+    {
+        $nuxt = ServerManager::instance()->nuxt();
+
+        if (is_string($url)) {
+            $nuxtUrl = $nuxt->rewrite($url);
+        } else {
+            // Handle array of URLs
+            $nuxtUrl = array_map(fn (string $singleUrl) => $nuxt->rewrite($singleUrl), $url);
+        }
+
+        $page = $this->visit($nuxtUrl, $options);
+
+        $page->waitForSelector('body[data-hydration="true"]');
+        return $page;
     }
 }

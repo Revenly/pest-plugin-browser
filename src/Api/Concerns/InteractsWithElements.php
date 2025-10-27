@@ -229,4 +229,12 @@ trait InteractsWithElements
 
         return $this;
     }
+
+     /**
+     * Check if the element matching the given selector is visible.
+     */
+    public function isVisible(string $selector): bool
+    {
+        return $this->guessLocator($selector)->isVisible();
+    }
 }

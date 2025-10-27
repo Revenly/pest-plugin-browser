@@ -38,7 +38,7 @@ final class Plugin implements Bootable, HandlesArguments, Terminable // @pest-ar
     {
         TestSuite::getInstance()
             ->tests
-            ->addTestCaseMethodFilter(new UsesBrowserTestCaseMethodFilter());
+            ->addTestCaseMethodFilter(new UsesBrowserTestCaseMethodFilter);
 
         pest()->afterEach(function (): void {
             if (Playwright::shouldDebugAssertions()) {
@@ -51,6 +51,11 @@ final class Plugin implements Bootable, HandlesArguments, Terminable // @pest-ar
             }
 
             ServerManager::instance()->http()->flush();
+
+            // Flush Nuxt server if it was started
+            if (ServerManager::instance()->nuxt() !== null) {
+                ServerManager::instance()->nuxt()->flush();
+            }
 
             Playwright::reset();
         })->in($this->in());
@@ -131,6 +136,11 @@ final class Plugin implements Bootable, HandlesArguments, Terminable // @pest-ar
         try {
             if (Parallel::isWorker() || Parallel::isEnabled() === false) {
                 ServerManager::instance()->http()->stop();
+
+                // Stop Nuxt server if it was started
+                if (ServerManager::instance()->nuxt() !== null) {
+                    ServerManager::instance()->nuxt()->stop();
+                }
 
                 Playwright::close();
             }

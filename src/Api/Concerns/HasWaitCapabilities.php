@@ -20,4 +20,16 @@ trait HasWaitCapabilities
 
         return $this;
     }
+
+    /**
+     * Waits for the selector to satisfy state option.
+     *
+     * @param  array<string, mixed>|null  $options  Additional options like state, strict, timeout
+     */
+    public function waitForSelector(string $selector, ?array $options = null): self
+    {
+        $this->page->waitForSelector($selector, $options);
+
+        return $this;
+    }
 }

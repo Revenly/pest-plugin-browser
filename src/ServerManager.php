@@ -8,6 +8,7 @@ use Pest\Browser\Contracts\HttpServer;
 use Pest\Browser\Contracts\PlaywrightServer;
 use Pest\Browser\Drivers\LaravelHttpServer;
 use Pest\Browser\Drivers\NullableHttpServer;
+use Pest\Browser\Nuxt\NuxtNpmServer;
 use Pest\Browser\Playwright\Servers\AlreadyStartedPlaywrightServer;
 use Pest\Browser\Playwright\Servers\PlaywrightNpmServer;
 use Pest\Browser\Support\PackageJsonDirectory;
@@ -42,11 +43,16 @@ final class ServerManager
     private ?HttpServer $http = null;
 
     /**
+     * The Nuxt server process.
+     */
+    private ?NuxtNpmServer $nuxt = null;
+
+    /**
      * Gets the singleton instance of the server manager.
      */
     public static function instance(): self
     {
-        return self::$instance ??= new self();
+        return self::$instance ??= new self;
     }
 
     /**
@@ -86,7 +92,23 @@ final class ServerManager
                 self::DEFAULT_HOST,
                 Port::find(),
             ),
-            default => new NullableHttpServer(),
+            default => new NullableHttpServer,
         };
+    }
+
+    /**
+     * Returns the Nuxt server process instance.
+     */
+    public function nuxt(): HttpServer
+    {
+        $port = Port::find();
+
+        $this->nuxt ??= NuxtNpmServer::create(
+            self::DEFAULT_HOST,
+            $port,
+            $this->http(), // Pass the HTTP server instance
+        );
+
+        return $this->nuxt;
     }
 }
