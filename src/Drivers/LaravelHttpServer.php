@@ -116,7 +116,6 @@ final class LaravelHttpServer implements HttpServer
      */
     private function createLogger(): LoggerInterface
     {
-        if (class_exists(Logger::class) && class_exists(StreamHandler::class)) {
             $logDir = TestSuite::getInstance()->rootPath.'/storage/logs/pest';
             $logPath = $logDir.'/http-server.log';
 
@@ -128,9 +127,9 @@ final class LaravelHttpServer implements HttpServer
             $logger->pushHandler(new StreamHandler($logPath, Level::Debug));
 
             return $logger;
-        }
+        // }
 
-        return new NullLogger;
+        // return new NullLogger;
     }
 
     /**
