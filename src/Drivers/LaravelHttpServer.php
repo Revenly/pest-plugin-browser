@@ -18,10 +18,15 @@ use Illuminate\Foundation\Testing\Concerns\WithoutExceptionHandlingHandler;
 use Illuminate\Http\Request;
 use Illuminate\Routing\UrlGenerator;
 use Illuminate\Support\Uri;
+use Monolog\Handler\StreamHandler;
+use Monolog\Level;
+use Monolog\Logger;
 use Pest\Browser\Contracts\HttpServer;
 use Pest\Browser\Exceptions\ServerNotFoundException;
 use Pest\Browser\Execution;
 use Pest\Browser\GlobalState;
+use Pest\TestSuite;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Mime\MimeTypes;
 use Throwable;
@@ -97,13 +102,35 @@ final class LaravelHttpServer implements HttpServer
             return;
         }
 
-        $this->socket = $server = SocketHttpServer::createForDirectAccess(new NullLogger());
+        $this->socket = $server = SocketHttpServer::createForDirectAccess($this->createLogger());
 
         $server->expose("{$this->host}:{$this->port}");
         $server->start(
             new ClosureRequestHandler($this->handleRequest(...)),
-            new DefaultErrorHandler(),
+            new DefaultErrorHandler,
         );
+    }
+
+    /**
+     * Create a logger instance.
+     */
+    private function createLogger(): LoggerInterface
+    {
+        if (class_exists(Logger::class) && class_exists(StreamHandler::class)) {
+            $logDir = TestSuite::getInstance()->rootPath.'/storage/logs/pest';
+            $logPath = $logDir.'/http-server.log';
+
+            if (! is_dir($logDir)) {
+                @mkdir($logDir, 0755, true);
+            }
+
+            $logger = new Logger('http-server');
+            $logger->pushHandler(new StreamHandler($logPath, Level::Debug));
+
+            return $logger;
+        }
+
+        return new NullLogger;
     }
 
     /**
@@ -307,7 +334,7 @@ final class LaravelHttpServer implements HttpServer
             return new Response(404);
         }
 
-        $mimeTypes = new MimeTypes();
+        $mimeTypes = new MimeTypes;
         $contentType = $mimeTypes->getMimeTypes(pathinfo($filepath, PATHINFO_EXTENSION));
 
         $contentType = $contentType[0] ?? 'application/octet-stream';
