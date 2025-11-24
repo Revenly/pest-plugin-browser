@@ -18,6 +18,9 @@ use Throwable;
  */
 final class NuxtNpmServer implements HttpServer
 {
+    private bool $isNpmRunDev = false;
+    private bool $isNpmRunBuild = false;
+
     /**
      * The underlying process instance, if any.
      */
@@ -31,7 +34,7 @@ final class NuxtNpmServer implements HttpServer
     /**
      * The Nuxt project directory.
      */
-    private readonly string $nuxtDirectory;
+    private readonly string $frontendBaseDirectory;
 
     /**
      * The unique API server URL for this instance.
@@ -48,10 +51,10 @@ final class NuxtNpmServer implements HttpServer
      */
     public function __construct(
         public readonly string $host,
-        public readonly int $port,
+        public int $port,
         ?HttpServer $httpServer = null,
     ) {
-        $this->nuxtDirectory = $this->findNuxtDirectory();
+        $this->frontendBaseDirectory = $this->findFrontendDirectory();
         $this->httpServer = $httpServer ?? ServerManager::instance()->http();
         $this->apiServerUrl = ''; // Will be set when HTTP server is running
     }
@@ -99,17 +102,40 @@ final class NuxtNpmServer implements HttpServer
             return;
         }
 
+        $this->ensureNuxtBuilt();
+
         // Ensure HTTP server is running and get API URL
         $this->httpServer->bootstrap();
         $this->apiServerUrl = $this->httpServer->rewrite('/');
 
-        $this->ensureNuxtBuilt();
+        if ($this->isNpmRunDev) {
+            $this->port = 3000;
 
-        $command = 'node .output/server/index.mjs';
+//            $envFilePath = "$this->frontendBaseDirectory/.env";
+//            $contents = file_get_contents($envFilePath);
+//            $contents = str_replace('NUXT_PUBLIC_BASE_URL', '#NUXT_PUBLIC_BASE_URL', $contents);
+//            $contents = str_replace('NUXT_PUBLIC_SANCTUM_BASE_URL', '#NUXT_PUBLIC_SANCTUM_BASE_URL', $contents);
+//            file_put_contents($envFilePath, $contents);
+//
+//            $configFilePath = "$this->frontendBaseDirectory/nuxt.config.ts";
+//            $contents = file_get_contents($configFilePath);
+//            $contents = str_replace(
+//                "baseUrl: '', // can be overridden by NUXT_PUBLIC_SANCTUM_BASE_URL environment variable",
+//                "baseUrl: '$this->apiServerUrl', // can be overridden by NUXT_PUBLIC_SANCTUM_BASE_URL environment variable",
+//                $contents
+//            );
+//            file_put_contents($configFilePath, $contents);
+
+            $this->systemProcess = SystemProcess::fromShellCommandline('tail');
+            $this->systemProcess->setTimeout(0);
+            $this->systemProcess->start();
+
+            return;
+        }
 
         $this->systemProcess = SystemProcess::fromShellCommandline(
-            $command,
-            $this->nuxtDirectory,
+            'node .output/server/index.mjs',
+            $this->frontendBaseDirectory,
             [
                 'NUXT_PUBLIC_BASE_URL' => $this->apiServerUrl,
                 'NUXT_PUBLIC_SANCTUM_BASE_URL' => $this->apiServerUrl,
@@ -132,6 +158,15 @@ final class NuxtNpmServer implements HttpServer
      */
     public function stop(): void
     {
+        $frontendEnvPath = "$this->frontendBaseDirectory/.env";
+
+        $contents = file_get_contents($frontendEnvPath);
+
+        file_put_contents(
+            $frontendEnvPath,
+            trim(\Str::before($contents, '# Injected by Pest'))."\n",
+        );
+
         if ($this->systemProcess instanceof SystemProcess && $this->isRunning()) {
             $this->systemProcess->stop(
                 timeout: 0.1,
@@ -184,14 +219,17 @@ final class NuxtNpmServer implements HttpServer
         if (! $this->isRunning()) {
             throw new ServerNotFoundException(
                 sprintf('The process with arguments [%s] is not running or has stopped unexpectedly.', json_encode([
-                    'nuxtDirectory' => $this->nuxtDirectory,
+                    'nuxtDirectory' => $this->frontendBaseDirectory,
                     'host' => $this->host,
                     'port' => $this->port,
                 ]))
             );
         }
 
-        return sprintf('http://%s:%d', $this->host, $this->port);
+        return match (true) {
+            $this->isNpmRunDev => 'http://tratta.test:3000',
+            $this->isNpmRunBuild => sprintf('http://%s:%d', $this->host, $this->port),
+        };
     }
 
     /**
@@ -205,7 +243,7 @@ final class NuxtNpmServer implements HttpServer
     /**
      * Find the Nuxt project directory.
      */
-    private function findNuxtDirectory(): string
+    private function findFrontendDirectory(): string
     {
         $currentDir = getcwd();
         $searchDirs = [
@@ -229,13 +267,24 @@ final class NuxtNpmServer implements HttpServer
      */
     private function ensureNuxtBuilt(): void
     {
-        $outputPath = $this->nuxtDirectory.'/.output/server/index.mjs';
+        $npmRunBuildPath = "$this->frontendBaseDirectory/.output/server/index.mjs";
+        $npmRunDevPath = "$this->frontendBaseDirectory/.nuxt/dev/index.mjs";
 
-        if (! file_exists($outputPath)) {
-            // $this->buildNuxt();
-            throw new ServerNotFoundException('Nuxt project is not built. Please build the project first.');
+        if (is_file($npmRunBuildPath)) {
+            $this->isNpmRunBuild = true;
+
+            return;
         }
 
+        if (is_file($npmRunDevPath)) {
+            $this->isNpmRunDev = true;
+
+            return;
+        }
+
+        // $this->buildNuxt();
+
+        throw new ServerNotFoundException('Nuxt project is not built. Please build the project first.');
     }
 
     /**
@@ -243,7 +292,7 @@ final class NuxtNpmServer implements HttpServer
      */
     private function buildNuxt(): void
     {
-        $buildProcess = new SystemProcess(['npx', 'nuxi', 'build'], $this->nuxtDirectory);
+        $buildProcess = new SystemProcess(['npx', 'nuxi', 'build'], $this->frontendBaseDirectory);
         $buildProcess->setTimeout(300); // 5 minutes timeout for build
 
         // Set environment variables for the build
