@@ -111,6 +111,21 @@ final class NuxtNpmServer implements HttpServer
         if ($this->isNpmRunDev) {
             $this->port = 3000;
 
+//            file_put_contents(
+//                "$this->frontendBaseDirectory/.env",
+//                <<<STRING
+//
+//                # Injected by Pest
+//                NUXT_PUBLIC_BASE_URL="$this->apiServerUrl"
+//                NUXT_PUBLIC_SANCTUM_BASE_URL="$this->apiServerUrl"
+//                PORT="$this->port"
+//                HOST="$this->host"
+//                NODE_ENV="production"
+//
+//                STRING,
+//                FILE_APPEND,
+//            );
+
 //            $envFilePath = "$this->frontendBaseDirectory/.env";
 //            $contents = file_get_contents($envFilePath);
 //            $contents = str_replace('NUXT_PUBLIC_BASE_URL', '#NUXT_PUBLIC_BASE_URL', $contents);
